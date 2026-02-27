@@ -1,34 +1,30 @@
 import streamlit as st
 import pickle
+import pandas as pd
 import numpy as np
 
-model = pickle.load(open("model.pkl", "rb"))
+@st.cache_resource
+def load_models():
+    lin_model = pickle.load(open('lin_model.pkl', 'rb'))
+    scaler = pickle.load(open('scaler.pkl', 'rb'))
+    le_cat = pickle.load(open('le_cat.pkl', 'rb'))
+    return lin_model, scaler, le_cat
 
-st.title("Google Play Revenue Prediction")
+st.title("🚀 App Expected Installs & Revenue Predictor")
+st.markdown("Enter app details to predict installs and revenue.")
 
-rating = st.slider("App Rating", 1.0, 5.0, 4.0, step=0.01)
+category = st.selectbox("Category", ['Tools', 'Games', 'Other'])  # Update with le.classes_
+rating = st.slider("Rating (1-5)", 1.0, 5.0, 4.2)
+price = st.number_input("Price ($)", 0.0, 50.0, 0.0)
 
-price = st.number_input("App Price ($)", 
-                        min_value=0.0, 
-                        max_value=500.0, 
-                        value=0.0, 
-                        step=0.1)
-
-installs = st.number_input("Number of Installs", 
-                           min_value=0, 
-                           max_value=100000000, 
-                           value=100000, 
-                           step=1000)
-
-if st.button("Predict Revenue"):
-    
-    base_revenue = price * installs
-    log_base_revenue = np.log1p(base_revenue)
-    
-    input_data = np.array([[rating, log_base_revenue]])
-    
-    log_prediction = model.predict(input_data)
-    
-    final_revenue = np.expm1(log_prediction[0])
-    
-    st.success(f"Estimated Revenue: ${final_revenue:,.2f}")
+if st.button("Predict"):
+    lin_model, scaler, le_cat = load_models()
+    cat_encoded = le_cat.transform([category])[0]
+    input_df = pd.DataFrame({'Rating': [rating], 'LogPrice': [np.log1p(price)], 'Category_Encoded': [cat_encoded]})
+    input_scaled = scaler.transform(input_df)
+    pred_log_installs = lin_model.predict(input_scaled)[0]
+    expected_installs = np.expm1(pred_log_installs)
+    expected_revenue = expected_installs * price
+    st.success(f"**Expected Installs:** {expected_installs:,.0f}")
+    st.success(f"**Expected Revenue:** ${expected_revenue:,.0f}")
+    st.balloons()
