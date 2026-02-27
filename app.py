@@ -22,11 +22,13 @@ installs = st.number_input("Number of Installs",
 
 if st.button("Predict Revenue"):
     
-    log_installs = np.log1p(installs)
-    input_data = np.array([[rating, price, log_installs]])
+    base_revenue = price * installs
+    log_base_revenue = np.log1p(base_revenue)
+    
+    input_data = np.array([[rating, log_base_revenue]])
     
     log_prediction = model.predict(input_data)
     
-    revenue = np.expm1(log_prediction[0])  # reverse log
+    final_revenue = np.expm1(log_prediction[0])
     
-    st.success(f"Estimated Revenue: ${revenue:,.2f}")
+    st.success(f"Estimated Revenue: ${final_revenue:,.2f}")
