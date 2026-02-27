@@ -6,9 +6,19 @@ model = pickle.load(open("model.pkl", "rb"))
 
 st.title("Google Play Revenue Prediction")
 
-rating = st.slider("App Rating", 1.0, 5.0, 4.0)
-price = st.number_input("App Price ($)", 0.0, 500.0, 0.0)
-installs = st.number_input("Number of Installs", 0, 100000000, 100000)
+rating = st.slider("App Rating", 1.0, 5.0, 4.0, step=0.01)
+
+price = st.number_input("App Price ($)", 
+                        min_value=0.0, 
+                        max_value=500.0, 
+                        value=0.0, 
+                        step=0.1)
+
+installs = st.number_input("Number of Installs", 
+                           min_value=0, 
+                           max_value=100000000, 
+                           value=100000, 
+                           step=1000)
 
 if st.button("Predict Revenue"):
     
