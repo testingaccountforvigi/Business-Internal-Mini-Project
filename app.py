@@ -35,54 +35,66 @@ price = st.number_input("**💰 Price** ($)", 0.0, 50.0, 0.0)
 
 if st.button("🎯 Predict Revenue", type="primary"):
     try:
+        # Load all 3 models: lin_model (LinearRegression), scaler (StandardScaler), le_cat (LabelEncoder)
         lin_model, scaler, le_cat = load_models()
+        
+        # MODEL 1: le_cat (LabelEncoder) - Encodes category to numeric ✓ USED
         cat_encoded = le_cat.transform([category])[0]
         
-        # STEP 1: Model predicts BASE installations
+        # STEP 1: Prepare input for prediction
         input_df = pd.DataFrame({
             'Rating': [rating], 
             'LogPrice': [np.log1p(price)], 
             'Category_Encoded': [cat_encoded]
         })
+        
+        # MODEL 2: scaler (StandardScaler) - Scales features ✓ USED
         input_scaled = scaler.transform(input_df)
+        
+        # MODEL 3: lin_model (LinearRegression) - Predicts installations ✓ USED
         base_log_installs = lin_model.predict(input_scaled)[0]
         base_log_installs = np.clip(base_log_installs, 0, 15)
         base_installs = np.expm1(base_log_installs)
         
-        # STEP 2: Multiply installations by category boost
+        # STEP 2: Get category boost multiplier
         category_boost = CATEGORY_BOOST.get(category, 1.0)
-        installations_before_rounding = base_installs * category_boost
         
-        # STEP 3: Round to whole number (no decimals)
-        final_installs = round(installations_before_rounding)
+        # STEP 3: Calculate boosted installations (multiply base * boost)
+        boosted_installations = base_installs * category_boost
         
-        # STEP 4: Apply price caps AFTER rounding
+        # STEP 4: Round to whole number (no decimal points)
+        rounded_installations = round(boosted_installations)
+        
+        # STEP 5: Apply price-based caps
         if price == 0:
-            final_installs = min(final_installs, 2000000)
-            final_installs = max(final_installs, 1000)
+            rounded_installations = min(rounded_installations, 2000000)
+            rounded_installations = max(rounded_installations, 1000)
         elif price <= 1:
-            final_installs = min(final_installs, 500000)
-            final_installs = max(final_installs, 500)
+            rounded_installations = min(rounded_installations, 500000)
+            rounded_installations = max(rounded_installations, 500)
         elif price <= 5:
-            final_installs = min(final_installs, 100000)
-            final_installs = max(final_installs, 100)
+            rounded_installations = min(rounded_installations, 100000)
+            rounded_installations = max(rounded_installations, 100)
         else:
-            final_installs = min(final_installs, 25000)
-            final_installs = max(final_installs, 10)
+            rounded_installations = min(rounded_installations, 25000)
+            rounded_installations = max(rounded_installations, 10)
         
-        # STEP 5: Calculate revenue from rounded installations
-        revenue = final_installs * price
+        # STEP 6: Calculate revenue from rounded installations
+        revenue = rounded_installations * price
         
         # Display
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("📈 Installations", f"{final_installs:,}")
+            st.metric("📈 Installations", f"{rounded_installations:,}")
         with col2:
             st.metric("💰 Revenue", f"${revenue:,.0f}")
+        with col3:
+            st.metric("🎯 Category Boost", f"{category_boost}x")
         
         st.success(f"""
         **{category}** | **{rating}⭐** | **${price}**
-        → **{final_installs:,} installations** = **${revenue:,.0f} revenue**
+        → **{rounded_installations:,} installations** = **${revenue:,.0f} revenue**
+        (Base: {int(base_installs):,} × Boost: {category_boost}x = {int(boosted_installations):,})
         """)
         st.balloons()
         
