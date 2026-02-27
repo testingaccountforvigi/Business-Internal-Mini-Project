@@ -10,34 +10,18 @@ def load_models():
     le_cat = pickle.load(open('le_cat.pkl', 'rb'))
     return lin_model, scaler, le_cat
 
-# Category multipliers (HIGH demand = MORE installs = MORE revenue)
+# Category multipliers (affects installations)
 CATEGORY_BOOST = {
-    'Tools': 3.0,           # Highest demand
-    'Communication': 2.8,   
-    'Social': 2.5,         
-    'Productivity': 2.2,   
-    'Entertainment': 2.0,  
-    'Shopping': 1.8,       
-    'Sports': 1.6,         
-    'Education': 1.5,      
-    'Games': 1.4,          # Arcade/Casual/Puzzle
-    'Finance': 1.2,        # Niche
-    'Health & Fitness': 1.1,
-    'Travel & Local': 1.1, 
-    'Music & Audio': 1.0,  
-    'Lifestyle': 0.9,      
-    'Books & Reference': 0.8,
-    'Business': 0.7,       
-    'Food & Drink': 0.7,   
-    'Personalization': 0.6,
-    'Puzzle': 0.6,         
-    'Arcade': 0.5,         # Lowest
-    'Casual': 0.5,
-    'Other': 1.0
+    'Tools': 3.0, 'Communication': 2.8, 'Social': 2.5, 'Productivity': 2.2, 
+    'Entertainment': 2.0, 'Shopping': 1.8, 'Sports': 1.6, 'Education': 1.5,
+    'Games': 1.4, 'Finance': 1.2, 'Health & Fitness': 1.1, 'Travel & Local': 1.1,
+    'Music & Audio': 1.0, 'Lifestyle': 0.9, 'Books & Reference': 0.8, 
+    'Business': 0.7, 'Food & Drink': 0.7, 'Personalization': 0.6, 
+    'Puzzle': 0.6, 'Arcade': 0.5, 'Casual': 0.5, 'Other': 1.0
 }
 
 st.title("🚀 App Revenue Predictor")
-st.markdown("**K-Means + Linear Regression → Category-Smart Revenue**")
+st.markdown("**Model → Installs × Category Boost → Revenue**")
 
 categories = ['Arcade', 'Books & Reference', 'Business', 'Casual', 'Communication', 
               'Education', 'Entertainment', 'Finance', 'Food & Drink', 
@@ -54,7 +38,7 @@ if st.button("🎯 Predict Revenue", type="primary"):
         lin_model, scaler, le_cat = load_models()
         cat_encoded = le_cat.transform([category])[0]
         
-        # STEP 1: YOUR MODEL predicts BASE installs from rating/price/category
+        # STEP 1: Model predicts BASE installations
         input_df = pd.DataFrame({
             'Rating': [rating], 
             'LogPrice': [np.log1p(price)], 
@@ -65,33 +49,40 @@ if st.button("🎯 Predict Revenue", type="primary"):
         base_log_installs = np.clip(base_log_installs, 0, 15)
         base_installs = np.expm1(base_log_installs)
         
-        # STEP 2: Multiply by CATEGORY BOOST (Tools = 3x more installs!)
+        # STEP 2: Multiply installations by category boost
         category_boost = CATEGORY_BOOST.get(category, 1.0)
-        final_installs = base_installs * category_boost
+        installations_before_rounding = base_installs * category_boost
         
-        # STEP 3: Apply price realism caps
+        # STEP 3: Round to whole number (no decimals)
+        final_installs = round(installations_before_rounding)
+        
+        # STEP 4: Apply price caps AFTER rounding
         if price == 0:
-            final_installs = np.clip(final_installs, 1000, 2000000)
+            final_installs = min(final_installs, 2000000)
+            final_installs = max(final_installs, 1000)
         elif price <= 1:
-            final_installs = np.clip(final_installs, 500, 500000)
+            final_installs = min(final_installs, 500000)
+            final_installs = max(final_installs, 500)
         elif price <= 5:
-            final_installs = np.clip(final_installs, 100, 100000)
+            final_installs = min(final_installs, 100000)
+            final_installs = max(final_installs, 100)
         else:
-            final_installs = np.clip(final_installs, 10, 25000)
-            
-        # STEP 4: REVENUE = installs × price
+            final_installs = min(final_installs, 25000)
+            final_installs = max(final_installs, 10)
+        
+        # STEP 5: Calculate revenue from rounded installations
         revenue = final_installs * price
         
-        # Display ONLY installs + revenue (no boost shown)
+        # Display
         col1, col2 = st.columns(2)
         with col1:
-            st.metric("📈 Expected Installs", f"{final_installs:,.0f}")
+            st.metric("📈 Installations", f"{final_installs:,}")
         with col2:
-            st.metric("💰 Expected Revenue", f"${revenue:,.0f}")
+            st.metric("💰 Revenue", f"${revenue:,.0f}")
         
         st.success(f"""
-        **{category}** app | **{rating}⭐** | **${price}** 
-        → **{final_installs:,.0f} installs** = **${revenue:,.0f} revenue**
+        **{category}** | **{rating}⭐** | **${price}**
+        → **{final_installs:,} installations** = **${revenue:,.0f} revenue**
         """)
         st.balloons()
         
@@ -99,4 +90,4 @@ if st.button("🎯 Predict Revenue", type="primary"):
         st.error(f"Error: {str(e)}")
 
 st.markdown("---")
-st.caption("🎓 Business Mini-Project Presentation Ready")
+st.caption("🎓 Business Analytics Mini-Project")
